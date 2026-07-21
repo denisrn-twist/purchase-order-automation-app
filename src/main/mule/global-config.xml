@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:s3="http://www.mulesoft.org/schema/mule/s3"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xmlns:idp="http://www.mulesoft.org/schema/mule/idp"
+      xmlns:oauth="http://www.mulesoft.org/schema/mule/oauth"
+      xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway"
+      xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/idp http://www.mulesoft.org/schema/mule/idp/current/mule-idp.xsd
+        http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+        http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd
+        http://www.mulesoft.org/schema/mule/oauth http://www.mulesoft.org/schema/mule/oauth/current/mule-oauth.xsd">
+
+    <!-- Properties Configuration -->
+    <global-property doc:name="Global Property" name="env" value="qa" />
+    <configuration-properties file="config-${env}.yaml" doc:name="Configuration properties" />
+
+    <!-- API Autodiscovery -->
+    <!-- <api-gateway:autodiscovery apiId="${api.id}" ignoreBasePath="true" doc:name="API Autodiscovery" flowRef="get-file-lookup-flow" /> -->
+
+    <!-- HTTP Listener Config for System API -->
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" basePath="/system/s3-file-lookup/v1">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <!-- VM Config -->
+    <vm:config name="VM_Config" doc:name="VM Config">
+        <vm:queues >
+            <vm:queue queueName="po-processing-queue" queueType="PERSISTENT" />
+        </vm:queues>
+    </vm:config>
+
+    <!-- AWS S3 Configuration -->
+    <s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration">
+        <s3:connection accessKey="${aws.accessKey}" secretKey="${aws.secretKey}" tryDefaultAWSCredentialsProviderChain="true" region="${aws.s3.region}" />
+    </s3:config>
+
+
+    <!-- HTTP Request Config for IDP -->
+    <http:request-config name="HTTP_Request_IDP" doc:name="HTTP Request IDP" basePath="${idp.basePath}">
+        <http:request-connection host="${idp.host}" port="${idp.port}" protocol="HTTPS">
+            <http:authentication>
+                <oauth:client-credentials-grant-type clientId="${idp.clientId}" clientSecret="${idp.clientSecret}" tokenUrl="https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token" />
+            </http:authentication>
+        </http:request-connection>
+    </http:request-config>
+
+    <!-- Salesforce Configuration -->
+    <salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config">
+		<salesforce:jwt-connection consumerKey="${salesforce.consumerKey}" keyStore="keystore.p12" storePassword="Twist@2026" principal="${salesforce.principal}" tokenEndpoint="${salesforce.tokenEndpoint}" />
+    </salesforce:sfdc-config>
+
+
+
+
+
+</mule>

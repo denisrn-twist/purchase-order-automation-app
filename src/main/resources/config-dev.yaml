@@ -1,0 +1,42 @@
+api:
+  id: "12345678"
+
+aws:
+  s3:
+    roleArn: "arn:aws:iam::749602843853:role/twist-api-purchase-orders-role"
+    region: "us-east-1"
+    bucketName: "twist-api-purchase-orders-qa"
+    archivePath: "archive/"
+  accessKey: "ASIA25B6PVTGW3WHR4VE"
+  secretKey: "5xDIGvDf+O4Wsbf6ASqdf2BXuLbAQ8fpmA49+GTj"
+  sessionToken: ""
+  
+idp:
+  host: "idp-rt.us-east-1.anypoint.mulesoft.com"
+  port: "443"
+  basePath: "/api/v1"
+  clientId: "16e5c838bf1d4e88883b58012693161b"
+  clientSecret: "e35f8c788ae24a1fB7A73305f46c4268"
+  actionId: "6ca5506c-6028-4dd8-8309-38be403da995"
+  orgId: "1b779604-67d0-4285-87b7-be5e6af3ba19"
+
+salesforce:
+  username: "mulesoftapi@twistbioscience.com"
+  password: "Twist@2026"
+  securityToken: "e99A2VlFmuZdCWsg2LDEzK6uA"
+  consumerKey: "3MVG96yD8KRvY2.HIrks1tm6upzdiXbDsRWf8c1UfUgN_ZS5WU4boDHrLC7o5kPEUxky0IK_mzypX2AqoUBfw"
+  consumerSecret: "83C9465BCDC37B8AAAADEB87B73AA588258D189B0C75A3DF7DA3B344E8ABBEB8"
+  tokenEndpoint: "https://twistbioscience--pdx.sandbox.my.salesforce.com/services/oauth2/token"
+  principal: "mulesoftapi@twistbioscience.com.pdx"
+  apiversion: "54.0"
+  jwt:
+    audience: "https://login.salesforce.com"
+    keypath: "jwt/sfdc-keystore-dev.jks"
+    keypass: "SFDCDevKey"
+    crtalias: "mulesfdcdev"
+  bulk:
+    lineEnding: "CRLF"
+    monitorRetries: "40"
+    monitorFrequency: "5000"
+  limits:
+    dmlSync: "200"

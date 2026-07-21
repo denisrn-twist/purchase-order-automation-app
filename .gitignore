@@ -1,0 +1,16 @@
+target/
+.tooling/
+.mule/
+*.class
+*.jar
+*.log
+.DS_Store
+
+# Anypoint Studio / Eclipse
+.project
+.classpath
+.settings/
+
+# Downloaded/extracted temporary files
+mule-s3.zip
+mule-s3-extracted/

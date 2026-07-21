@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Order Automation - Project Documentation</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Mermaid JS -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+    </script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-light: #eff6ff;
+            --secondary: #475569;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --warning-light: #fef3c7;
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            background-color: transparent;
+            color: var(--text-main);
+            border-bottom: none;
+            padding: 0;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            color: var(--text-main);
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 0.5rem;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert {
+            background-color: var(--warning-light);
+            border-left: 4px solid var(--warning);
+            padding: 1rem 1.5rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .alert-info {
+            background-color: #e0f2fe;
+            border-left: 4px solid #0284c7;
+            padding: 1rem 1.5rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+        }
+
+        .alert strong, .alert-info strong {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .alert strong { color: #b45309; }
+        .alert-info strong { color: #0369a1; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.95rem;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--bg-body);
+            font-weight: 600;
+            color: var(--secondary);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+
+        tr:hover {
+            background-color: var(--primary-light);
+        }
+
+        .badge-success { background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; font-weight: 500;}
+        .badge-danger { background-color: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; font-weight: 500;}
+        .badge-code { background-color: #f1f5f9; color: #334155; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.9em;}
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .technical-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .highlight { color: #38bdf8; }
+        .string { color: #a3e635; }
+
+        .diagram-container {
+            display: flex;
+            justify-content: center;
+            background: var(--bg-body);
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px dashed var(--border);
+        }
+        
+        ul.considerations li {
+            margin-bottom: 0.8rem;
+        }
+        
+        code, pre {
+            background-color: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        pre {
+            padding: 1rem;
+            overflow-x: auto;
+            font-size: 0.9em;
+            border: 1px solid var(--border);
+        }
+    
+        .sidebar {
+            width: 320px;
+            padding: 2rem 1.5rem;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            border-right: 1px solid var(--border);
+            background-color: white;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+        
+        .sidebar header {
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .sidebar header h1 {
+            font-size: 1.8rem;
+        }
+
+        .sidebar nav ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .sidebar nav ul li {
+            margin-bottom: 0.8rem;
+        }
+
+        .sidebar nav ul li a {
+            text-decoration: none;
+            color: var(--secondary);
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            display: block;
+        }
+
+        .sidebar nav ul li a:hover {
+            color: var(--primary);
+            font-weight: 600;
+            transform: translateX(4px);
+        }
+</style>
+</head>
+<body>
+
+
+<aside class="sidebar">
+    <header>
+        <h1>Purchase Order Automation</h1>
+        <p>Comprehensive Technical & Business Documentation</p>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="#section-1">1. Project Overview</a></li>
+            <li><a href="#section-2">2. Business Problem</a></li>
+            <li><a href="#section-3">3. Solution Overview</a></li>
+            <li><a href="#section-4">4. Technical Architecture</a></li>
+            <li><a href="#section-5">5. End-to-End Process</a></li>
+            <li><a href="#section-6">6. IDP Processing Flow</a></li>
+            <li><a href="#section-7">7. Validation & Processing Report</a></li>
+            <li><a href="#section-8">8. Current Results</a></li>
+            <li><a href="#section-9">9. Lessons Learned</a></li>
+            <li><a href="#section-10">10. Better Automation</a></li>
+            <li><a href="#section-11">11. Process Improvements</a></li>
+            <li><a href="#section-12">12. Future Enhancements</a></li>
+            <li><a href="#section-13">13. Next Steps</a></li>
+        </ul>
+    </nav>
+</aside>
+
+
+<div class="container">
+
+    <div class="card" id="section-1">
+        <h2>1. Project Overview</h2>
+        <p>The Purchase Order Automation project is an enterprise-grade solution built on <strong>MuleSoft</strong> to orchestrate the end-to-end processing of Purchase Orders (POs) arriving via AWS S3 or Local File Directories. By leveraging <strong>MuleSoft IDP (Intelligent Document Processing)</strong> and native integrations with <strong>Salesforce</strong>, the application fully automates document extraction, data normalization, and system-of-record validation.</p>
+    </div>
+
+    <div class="card" id="section-2">
+        <h2>2. Business Problem</h2>
+        <p>Historically, processing incoming Purchase Orders required manual intervention. Accounting and Sales operations teams had to open PDF documents, manually read the data (PO Number, Totals, Billing/Shipping addresses), and cross-reference them against Salesforce records (`PurchaseOrder__c` and `Order` objects).</p>
+        <p>This process was:</p>
+        <ul>
+            <li>Highly prone to human error (typos, missed addresses).</li>
+            <li>Incredibly time-consuming, resulting in delayed fulfillment.</li>
+            <li>Lacking in governance, with no unified SOX-compliant audit trail.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="section-3">
+        <h2>3. Solution Overview</h2>
+        <p>This application implements an autonomous pipeline that completely eliminates manual data entry. It detects incoming compressed `.zip` files (containing multiple PO PDFs), extracts them in-memory, uses AI (MuleSoft IDP) to digitize the PDF contents, and employs fuzzy-matching algorithms (via DataWeave) to validate the extracted addresses and amounts against Salesforce. A fully tracked <strong>SOX Audit Trail</strong> ensures enterprise compliance.</p>
+    </div>
+
+    <div class="card" id="section-4">
+        <h2>4. Technical Architecture</h2>
+        <p>The system is composed of four main technology pillars seamlessly orchestrated by MuleSoft:</p>
+        <ul>
+            <li><strong>AWS S3:</strong> Serves as the cloud storage repository for incoming batch files. Accessed via both Scheduled Polling and On-Demand HTTP API (`/process-s3`).</li>
+            <li><strong>MuleSoft Core:</strong> Orchestrates routing, batch extraction (Compression Module), DataWeave fuzzy-matching, and SOX Audit Logging.</li>
+            <li><strong>MuleSoft IDP:</strong> An AI-driven service that extracts structured data (and Custom Prompts) from unstructured PDF files.</li>
+            <li><strong>Salesforce (SFDC):</strong> The CRM where `PurchaseOrder__c` (Amounts & Billing) and `Order` (Shipping) records are queried and validated.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="section-5">
+        <h2>5. End-to-End Process</h2>
+        <p>The following diagram maps the high-level orchestrated flow from file intake to the final audit step. <strong>Note:</strong> The HTTP API Endpoint (<code>GET /process-s3</code>) is the <strong>primary production entry point</strong> designed to receive calls from external systems. The S3 and Local Schedulers are secondary flows utilized primarily for testing and manual recovery.</p>
+        <div class="mermaid">
+            graph TD
+                API([External System]) -->|HTTP GET /process-s3| B(Application Start)
+                Sched1([S3 Scheduler]) -.->|Testing Only| B
+                Sched2([Local Scheduler]) -.->|Testing Only| B
+                B --> C[SOX: File Intake Started]
+                C --> D(Fetch & Extract ZIP)
+                D --> E{Is PDF?}
+                E -- Yes --> F[SOX: PO Processing Started]
+                E -- No --> G[Ignore File]
+                F --> H(IDP Processing)
+                H --> J[SOX: IDP Extraction Completed]
+                J --> L(Salesforce Validation)
+                L --> M{Match OK?}
+                M -- Yes --> N[SOX: Validation Successful]
+                M -- No --> K(Exception Queue)
+                K --> O[SOX: Processing Failed]
+        </div>
+    </div>
+
+    <div class="card" id="section-6">
+        <h2>6. IDP Processing Flow</h2>
+        <p>Document digitization requires a synchronized dance with MuleSoft IDP. Because IDP is asynchronous, we implemented an optimized polling mechanism with native DataWeave sleep timers to prevent timeouts and API limits.</p>
+        <div class="mermaid">
+            sequenceDiagram
+                participant M as MuleSoft Flow
+                participant I as MuleSoft IDP
+                
+                M->>I: POST Document (Action Execution)
+                I-->>M: Return Execution ID (ACKNOWLEDGED)
+                Note over M: DataWeave Runtime Sleep (1.5s)
+                loop Until Successful
+                    M->>I: GET Document Status
+                    alt Status == IN_PROGRESS
+                        I-->>M: IN_PROGRESS
+                        Note over M: Raise Error & Retry (Wait 5s)
+                    else Status == SUCCEEDED
+                        I-->>M: JSON Extracted Data
+                    end
+                end
+                M->>M: Fallback Mapping (Standard vs Custom Prompt)
+        </div>
+    </div>
+
+    <div class="card" id="section-7">
+        <h2>7. Validation & Processing Report</h2>
+        <p>After querying Salesforce and executing the DataWeave fuzzy-matching (e.g., matching 50% of the words for addresses), the system generates a standardized JSON payload that logs the success status of every field.</p>
+        
+        <h3>Example 1: Success Scenario (All fields match)</h3>
+        <pre>{
+  "zip": "batch_2026.zip",
+  "pdf": "po_0009539024.pdf",
+  "status": "ok",
+  "details": {
+    "poNumber": {
+      "status": "ok",
+      "idp": "0000977227",
+      "sfdc": "0000977227"
+    },
+    "totalAmount": {
+      "status": "ok",
+      "idp": 1250.00,
+      "sfdc": 1250.00
+    },
+    "billingAddress": {
+      "status": "ok",
+      "idp": "123 corporate blvd san jose ca",
+      "sfdc": "123 corporate boulevard san jose california"
+    },
+    "shippingAddress": {
+      "status": "ok",
+      "idp": "456 warehouse st austin tx",
+      "sfdc": "456 warehouse street austin texas"
+    }
+  }
+}</pre>
+
+        <h3>Example 2: Failure Scenario (Mismatch found)</h3>
+        <pre>{
+  "zip": "batch_2026.zip",
+  "pdf": "po_0009539023.pdf",
+  "status": "fail",
+  "details": {
+    "poNumber": {
+      "status": "ok",
+      "idp": "0000977226",
+      "sfdc": "0000977226"
+    },
+    "totalAmount": {
+      "status": "ok",
+      "idp": 5277.75,
+      "sfdc": 5277.75
+    },
+    "billingAddress": {
+      "status": "fail",
+      "idp": "po box 9999",
+      "sfdc": "po box 19024 seattle washington 98109 united states"
+    },
+    "shippingAddress": {
+      "status": "ok",
+      "idp": "1100 fairview av n seattle wa 981091024 united states",
+      "sfdc": "1100 fairview ave n c2025 seattle us_wa 98109"
+    }
+  }
+}</pre>
+    </div>
+
+    <div class="card" id="section-8">
+        <h2>8. Current Results</h2>
+        <ul>
+            <li><strong>Reduced Processing Time:</strong> PO processing dropped from minutes per document to under ~10 seconds.</li>
+            <li><strong>Intelligent Extraction:</strong> Leveraging MuleSoft IDP Custom Prompts allowed us to capture complex "Bill To" addresses as fallback when native models missed them.</li>
+            <li><strong>Compliance:</strong> The application now satisfies SOX Compliance requirements through strategic, UUID-tracked logging across 5 application layers.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="section-9">
+        <h2>9. Lessons Learned</h2>
+        <ul>
+            <li><strong>Address Fuzzy Matching:</strong> Strict string comparison fails for addresses due to human variations (e.g., "Ave" vs "Avenue"). Using DataWeave to split strings into word arrays and requiring a 50% overlap proved highly resilient.</li>
+            <li><strong>IDP Asynchronicity:</strong> Hitting the IDP GET endpoint immediately after the POST causes unnecessary failures. Implementing a 1.5-second pre-polling delay resolved the timeout/rate-limit noise.</li>
+            <li><strong>Relational Data in CRM:</strong> Validating POs required querying multiple Salesforce tables (`PurchaseOrder__c` and `Order`). MuleSoft easily orchestrated these secondary queries without complex Apex code on the Salesforce side.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="section-10">
+        <h2>10. Recommendations for Better Automation</h2>
+        <ul>
+            <li><strong>Webhooks over Polling:</strong> Instead of using <code>&lt;until-successful&gt;</code> to poll the IDP status, configure IDP to push a Webhook callback to a Mule HTTP Listener once processing finishes, freeing up Mule threads.</li>
+            <li><strong>Automated Retries for Exceptions:</strong> Files that fail due to low IDP confidence should be automatically routed to an S3 "Exception Bucket" rather than just logged, allowing humans to fix the PDF and drop it back into the main bucket.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="section-11">
+        <h2>11. Recommendations for Business Process Improvements</h2>
+        <ul>
+            <li><strong>Standardized Vendor Templates:</strong> Work with the top 20% of vendors to standardize their PO formats (or transition them to EDI). IDP works best when the layout is reasonably predictable.</li>
+            <li><strong>Master Data Quality:</strong> Clean up historical address records in Salesforce. Fuzzy matching is powerful, but garbage data in the CRM will inevitably lead to validation failures.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="section-12">
+        <h2>12. Future Enhancements</h2>
+        <ul>
+            <li><strong>Slack/Teams Integration:</strong> Send real-time alerts to the Sales Ops channel when a high-value PO fails validation.</li>
+            <li><strong>Salesforce Status Update:</strong> Currently, we only read from Salesforce. In the next phase, MuleSoft should execute an Update operation to change the PO Verification Status to "Verified via Automation" directly in the CRM.</li>
+            <li><strong>Dashboard Analytics:</strong> Forward the JSON validation logs to Splunk or ELK to build a dashboard showing the automation success rate over time.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="section-13">
+        <h2>13. Next Steps</h2>
+        <ol>
+            <li><strong>UAT (User Acceptance Testing):</strong> Business users to supply a final batch of 50 diverse historical POs to test the DataWeave fuzzy matching edge cases.</li>
+            <li><strong>Security Review:</strong> Validate AWS S3 IAM Roles and Salesforce Connected App permissions.</li>
+            <li><strong>Production Deployment:</strong> Migrate the application to CloudHub and enable the S3 Scheduler.</li>
+        </ol>
+    </div>
+
+</div>
+
+</body>
+</html>

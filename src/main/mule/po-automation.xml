@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:idp-test-idp-po_2-100="http://www.mulesoft.org/schema/mule/idp-test-idp-po_2-100"
+      xmlns:idp-test-idp-po-110="http://www.mulesoft.org/schema/mule/idp-test-idp-po-110"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:s3="http://www.mulesoft.org/schema/mule/s3"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:file="http://www.mulesoft.org/schema/mule/file"
+      xmlns:compression="http://www.mulesoft.org/schema/mule/compression"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+        http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/idp-test-idp-po-110 http://www.mulesoft.org/schema/mule/idp-test-idp-po-110/current/mule-idp-test-idp-po-110.xsd
+http://www.mulesoft.org/schema/mule/idp-test-idp-po_2-100 http://www.mulesoft.org/schema/mule/idp-test-idp-po_2-100/current/mule-idp-test-idp-po_2-100.xsd
+        http://www.mulesoft.org/schema/mule/compression http://www.mulesoft.org/schema/mule/compression/current/mule-compression.xsd
+        http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+
+    <!-- 1. MAIN ORCHESTRATOR FLOW -->
+    <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="d6ed8b0e-4d57-4d29-9cf1-e9bcbd08d3fb" >
+		<http:request-connection protocol="HTTPS" host="google.com" port="443" />
+	</http:request-config>
+	<idp-test-idp-po-110:config name="IDP___Test_idp_po___1_1_0_Config" doc:name="IDP - Test_idp_po - 1.1.0 Config" doc:id="b7823200-54a6-4e17-ba6f-1e8e4079084b" property_host="${idp.host}" property_port="${idp.port}" property_protocol="HTTPS" property_client-id="${idp.clientId}" property_client-secret="${idp.clientSecret}" />
+	<idp-test-idp-po_2-100:config name="IDP___Test_idp_po_2___1_0_0_Config" doc:name="IDP - Test_idp_po_2 - 1.0.0 Config" doc:id="92406844-d252-4a91-86f1-5a34aa00959b" property_host="${idp.host}" property_port="${idp.port}" property_protocol="HTTPS" property_client-id="${idp.clientId}" property_client-secret="${idp.clientSecret}" />
+
+    <!-- 1.1 S3 SCHEDULER FLOW -->
+    <flow name="po-s3-scheduler-flow" doc:name="PO S3 Scheduler Flow" initialState="stopped">
+        <scheduler doc:name="Scheduler S3">
+            <scheduling-strategy>
+                <fixed-frequency frequency="10" timeUnit="MINUTES"/>
+            </scheduling-strategy>
+        </scheduler>
+        <s3:list-objects bucketName="${aws.s3.bucketName}" config-ref="Amazon_S3_Configuration" doc:name="List Objects" />
+        
+        <foreach doc:name="For Each S3 Object">
+            <set-variable variableName="correlationId" value="#[uuid()]" doc:name="Set correlationId"/>
+            <set-variable variableName="originalFileName" value="#[payload.key]" doc:name="Set originalFileName" />
+            <set-variable variableName="archiveFileName" value="#[(now() as String {format: 'yyyyMMddHHmmss'}) ++ '_' ++ vars.originalFileName]" doc:name="Set archiveFileName" />
+            
+            <logger level="INFO" doc:name="Log Processing File" message="[#[vars.correlationId]] S3 Scheduler processing file: #[vars.originalFileName]"/>
+
+            <try doc:name="Try Processing">
+                <s3:get-object bucketName="${aws.s3.bucketName}" key="#[vars.originalFileName]" config-ref="Amazon_S3_Configuration" doc:name="Get Document" outputMimeType="application/octet-stream" />
+                
+                <set-variable variableName="soxEvent" value="File Intake Started" doc:name="Set soxEvent Intake S3"/>
+                <flow-ref doc:name="Call sox-audit-subflow" name="sox-audit-subflow"/>
+
+                <flow-ref doc:name="Call process-zip-subflow" name="process-zip-subflow"/>
+
+                <error-handler>
+                    <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue">
+                        <logger level="ERROR" doc:name="Log Error" message="[#[vars.correlationId]] Error processing file #[vars.originalFileName]: #[error.description]" />
+                        <flow-ref doc:name="Call exception-queue-subflow" name="exception-queue-subflow"/>
+                    </on-error-continue>
+                </error-handler>
+            </try>
+        </foreach>
+
+        <logger level="INFO" doc:name="Log End S3 Processing" message="==================================================&#10;PROCESSING FINISHED! All S3 files have been validated.&#10;You can now stop the Debugger (click the Stop button / red square).&#10;==================================================" />
+    </flow>
+
+    <!-- 1.2 LOCAL SCHEDULER FLOW -->
+    <flow name="po-local-scheduler-flow" doc:name="PO Local Scheduler Flow" initialState="stopped">
+        <scheduler doc:name="Scheduler Local">
+            <scheduling-strategy>
+                <fixed-frequency frequency="10" timeUnit="MINUTES"/>
+            </scheduling-strategy>
+        </scheduler>
+        
+        <logger level="INFO" doc:name="Log Start List" message="Local Scheduler fetching files from: C:\Users\dnascimento\Desktop\Atrium\twist\Twist_PO_Samples\PO Samples\Regular PO"/>
+        <file:list doc:name="List" directoryPath="C:\workspace\Twist\po" />
+        
+        <foreach doc:name="For Each File">
+            <set-variable variableName="correlationId" value="#[uuid()]" doc:name="Set correlationId"/>
+            <set-variable variableName="originalFileName" value="#[attributes.fileName]" doc:name="Set originalFileName" />
+            <logger level="INFO" doc:name="Log Processing File" message="[#[vars.correlationId]] Local Scheduler processing file: #[vars.originalFileName]"/>
+            
+            <set-variable variableName="soxEvent" value="File Intake Started" doc:name="Set soxEvent Intake Local"/>
+            <flow-ref doc:name="Call sox-audit-subflow" name="sox-audit-subflow"/>
+
+            <flow-ref doc:name="Call process-zip-subflow" name="process-zip-subflow"/>
+        </foreach>
+
+        <logger level="INFO" doc:name="Log End Local Processing" message="==================================================&#10;PROCESSING FINISHED! All local files have been validated.&#10;You can now stop the Debugger (click the Stop button / red square).&#10;==================================================" />
+    </flow>
+
+    <!-- 1.3 PROCESS ZIP SUBFLOW -->
+    <sub-flow name="process-zip-subflow" doc:name="Process ZIP Subflow">
+        <try doc:name="Try Extract ZIP">
+            <compression:extract doc:name="Extract">
+                <compression:extractor >
+                    <compression:zip-extractor />
+                </compression:extractor>
+            </compression:extract>
+            <ee:transform doc:name="Transform to Array">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload pluck (value, key) -> {
+    filename: key as String,
+    content: value
+}]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+            <error-handler>
+                <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" type="ANY">
+                    <logger level="INFO" doc:name="Not a ZIP" message="File #[vars.originalFileName] is not a ZIP. Processing directly." />
+                    <ee:transform doc:name="Transform to Array">
+                        <ee:message>
+                            <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+[{
+    filename: vars.originalFileName,
+    content: payload
+}]]]></ee:set-payload>
+                        </ee:message>
+                    </ee:transform>
+                </on-error-continue>
+            </error-handler>
+        </try>
+
+        <foreach doc:name="For Each File">
+            <choice doc:name="Choice">
+                <when expression="#[lower(payload.filename default '') endsWith '.pdf']">
+                    <logger level="INFO" doc:name="Log PDF Found" message="Processing PDF: #[payload.filename]"/>
+                    
+                    <set-variable variableName="pdfFileName" value="#[payload.filename]" doc:name="Set pdfFileName" />
+                    <set-payload value="#[payload.content]" doc:name="Set Payload to Binary" mimeType="application/octet-stream" />
+                    
+                    <set-variable variableName="s3FileName" value="#[vars.originalFileName]" doc:name="Backup s3FileName" />
+                    <set-variable variableName="originalFileName" value="#[vars.pdfFileName]" doc:name="Override originalFileName" />
+                    
+                    <set-variable variableName="soxEvent" value="PO Processing Started" doc:name="Set soxEvent PO Start"/>
+                    <flow-ref doc:name="Call sox-audit-subflow" name="sox-audit-subflow"/>
+
+                    <flow-ref doc:name="Call idp-extraction-subflow" name="idp-extraction-subflow"/>
+                    <logger level="INFO" doc:name="Log IDP Success" message="[#[vars.correlationId]] IDP Extraction completed for #[vars.pdfFileName]. Proceeding to Salesforce Validation."/>
+                    
+                    <set-variable variableName="soxEvent" value="IDP Extraction Completed" doc:name="Set soxEvent IDP"/>
+                    <set-variable variableName="soxDetails" value="#['Confidence Score: ' ++ payload.confidenceScore as String]" doc:name="Set soxDetails IDP"/>
+                    <flow-ref doc:name="Call sox-audit-subflow" name="sox-audit-subflow"/>
+                    <remove-variable variableName="soxDetails" doc:name="Clear soxDetails"/>
+                    
+                    <choice doc:name="Check Confidence Score">
+                        <when expression="#[payload.confidenceScore >= 0.50]">
+                            <flow-ref doc:name="Call salesforce-validation-subflow" name="salesforce-validation-subflow"/>
+                        </when>
+                        <otherwise>
+                            <logger level="WARN" doc:name="Log Low Confidence" message="[#[vars.correlationId]] Confidence Score below 90% (#[payload.confidenceScore]). Routing to exception queue."/>
+                            <flow-ref doc:name="Call exception-queue-subflow" name="exception-queue-subflow"/>
+                        </otherwise>
+                    </choice>
+                    <set-variable variableName="originalFileName" value="#[vars.s3FileName]" doc:name="Restore originalFileName" />
+                </when>
+                <otherwise>
+                    <logger level="INFO" doc:name="Log Ignored File" message="File ignored (not a PDF): #[payload.filename]"/>
+                </otherwise>
+            </choice>
+        </foreach>
+    </sub-flow>
+
+    <!-- 2. IDP EXTRACTION SUBFLOW -->
+    <sub-flow name="idp-extraction-subflow" doc:name="IDP Extraction Subflow">
+        <logger level="INFO" doc:name="Log IDP Start" message="[#[vars.correlationId]] Starting IDP Document Extraction..."/>
+        
+        <ee:transform doc:name="Prepare Multipart Form Data">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+    parts: {
+        file: {
+            headers: {
+                "Content-Disposition": {
+                    "name": "file",
+                    "filename": if (vars.originalFileName contains ".") vars.originalFileName else (vars.originalFileName ++ ".pdf")
+                },
+                "Content-Type": "application/pdf"
+            },
+            content: payload
+        }
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+		<idp-test-idp-po_2-100:postdocumentactionexecution doc:name="postDocumentActionExecution" doc:id="4df5fafd-43df-4cd8-b228-1d417ded29ab" config-ref="IDP___Test_idp_po_2___1_0_0_Config"/>
+        <set-variable variableName="executionId" value="#[payload.id]" doc:name="Set executionId"/>
+
+        <ee:transform doc:name="Wait 7.5s Before Polling">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="delayWait"><![CDATA[%dw 2.0
+import * from dw::Runtime
+output application/java
+---
+wait("delay", 7500)]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <until-successful maxRetries="20" millisBetweenRetries="5000" doc:name="Poll IDP Status">
+			<idp-test-idp-po_2-100:getdocumentactionexecution doc:name="getDocumentActionExecution" doc:id="4929094a-9840-4e8c-95c4-2d183c302708" config-ref="IDP___Test_idp_po_2___1_0_0_Config" execution-id="#[vars.executionId]"/>
+            <choice doc:name="Check processing status">
+                <when expression="#[payload.status == 'ACKNOWLEDGED' or payload.status == 'IN_PROGRESS']">
+                    <raise-error doc:name="Force Retry" type="APP:IDP_PROCESSING" description="IDP document is still processing..." />
+                </when>
+            </choice>
+        </until-successful>
+        
+        <!-- Simulate Mapping IDP JSON response to simple PO Object -->
+        <ee:transform doc:name="Map IDP Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var standardBilling = payload.pages[0].fields.parties.billTo.addressBlock.value
+var promptBilling = payload.prompts.customBillingAddress.answer.value
+---
+{
+    poNumber: (payload.pages[0].fields.purchaseOrderNumber.value default "") replace /[^0-9]/ with "",
+    totalAmount: payload.pages[0].fields.total.value default 0.0,
+    quoteId: payload.pages[0].fields.quoteId.value default "",
+    billingAddress: if (!isEmpty(standardBilling)) standardBilling else (promptBilling default ""),
+    shippingAddress: payload.pages[0].fields.parties.shipTo.addressBlock.value default "",
+    paymentMethod: payload.pages[0].fields.paymentMethod.value default "",
+    confidenceScore: payload.pages[0].fields.purchaseOrderNumber.confidenceScore default 1.0
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables >
+                <ee:set-variable variableName="idpData" ><![CDATA[%dw 2.0
+output application/java
+var standardBilling = payload.pages[0].fields.parties.billTo.addressBlock.value
+var promptBilling = payload.prompts.customBillingAddress.answer.value
+---
+{
+    totalAmount: payload.pages[0].fields.total.value default 0.0,
+    billingAddress: if (!isEmpty(standardBilling)) standardBilling else (promptBilling default ""),
+    shippingAddress: payload.pages[0].fields.parties.shipTo.addressBlock.value default "",
+    paymentMethod: payload.pages[0].fields.paymentMethod.value default ""
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+    </sub-flow>
+
+    <!-- 3. SALESFORCE VALIDATION SUBFLOW -->
+    <sub-flow name="salesforce-validation-subflow" doc:name="Salesforce Validation Subflow">
+        <logger level="INFO" doc:name="Log Salesforce Start" message="[#[vars.correlationId]] Validating PO Data in Salesforce..."/>
+        
+        <choice doc:name="Validate PO Number">
+            <when expression="#[!isEmpty(payload.poNumber)]">
+                <!-- Query: PurchaseOrder__c -->
+                <salesforce:query config-ref="Salesforce_Config" doc:name="Query PurchaseOrder" target="purchaseOrderData">
+                    <salesforce:salesforce-query><![CDATA[#["SELECT Id, Purchase_Order_Reference__c, Billing_Address__c, Payment_Billing_Address__c, Starting_PO_Balance__c, Subtotal__c, Type__c, PO_Type__c, Uses_Portal__c, Portal_Name__c, Vat_Exempt__c, Payer__c, Verification_Status__c, Expiration_Date__c, PO_Date__c FROM PurchaseOrder__c WHERE Purchase_Order_Reference__c = '" ++ (payload.poNumber default "") ++ "' LIMIT 200"]]]></salesforce:salesforce-query>
+                </salesforce:query>
+
+
+
+                <!-- Query: Order (to get Shipping Address) -->
+                <salesforce:query config-ref="Salesforce_Config" doc:name="Query Order" target="orderData">
+                    <salesforce:salesforce-query><![CDATA[#["SELECT Id, Selected_Shipping_Address__r.Street_1__c, Selected_Shipping_Address__r.Street_2__c, Selected_Shipping_Address__r.City__c, Selected_Shipping_Address__r.State__c, Selected_Shipping_Address__r.Zip_Code__c FROM Order WHERE Selected_Payment_Method__c = '" ++ (vars.purchaseOrderData[0].Id default "") ++ "' LIMIT 1"]]]></salesforce:salesforce-query>
+                </salesforce:query>
+
+                <ee:transform doc:name="Cumulative Validation">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var sfdc = vars.purchaseOrderData[0] default {}
+var idpPayload = payload default {}
+
+var cleanIdpAmount = (idpPayload.totalAmount replace /[^\d.]/ with "") as Number default 0
+var cleanSfdcAmount = (sfdc.Starting_PO_Balance__c default "0") as Number
+
+// Normalization: removing line breaks, HTML tags, and converting to lowercase
+var cleanIdpBilling = lower(idpPayload.billingAddress default "" replace /\n/ with " " replace /[^\w\s]/ with "")
+var cleanSfdcBilling = lower(sfdc.Payment_Billing_Address__c default "" replace /<[^>]+>/ with " " replace /[^\w\s]/ with "")
+
+var poNumberStatus = if(sfdc.Purchase_Order_Reference__c == idpPayload.poNumber) "ok" else "fail"
+var amountStatus = if(cleanSfdcAmount == cleanIdpAmount) "ok" else "fail"
+
+// Basic fuzzy match: If at least 50% of the words from the IDP address are present in the Salesforce address
+var idpWords = cleanIdpBilling splitBy " " filter ((item) -> not isEmpty(item))
+var matchCount = sizeOf(idpWords filter ((word) -> cleanSfdcBilling contains word))
+var billingStatus = if(sizeOf(idpWords) > 0 and (matchCount / sizeOf(idpWords)) >= 0.5) "ok" else "fail"
+
+var order = vars.orderData[0] default {}
+var sfdcShippingConcat = (order.Selected_Shipping_Address__r.Street_1__c default "") ++ " " ++ 
+                         (order.Selected_Shipping_Address__r.Street_2__c default "") ++ " " ++ 
+                         (order.Selected_Shipping_Address__r.City__c default "") ++ " " ++ 
+                         (order.Selected_Shipping_Address__r.State__c default "") ++ " " ++ 
+                         (order.Selected_Shipping_Address__r.Zip_Code__c default "")
+
+var cleanIdpShipping = lower(idpPayload.shippingAddress default "" replace /\n/ with " " replace /[^\w\s]/ with "")
+var cleanSfdcShipping = lower(sfdcShippingConcat replace /<[^>]+>/ with " " replace /[^\w\s]/ with "")
+
+var idpShipWords = cleanIdpShipping splitBy " " filter ((item) -> not isEmpty(item))
+var matchCountShip = sizeOf(idpShipWords filter ((word) -> cleanSfdcShipping contains word))
+var shippingStatus = if(sizeOf(idpShipWords) > 0 and (matchCountShip / sizeOf(idpShipWords)) >= 0.5) "ok" else "fail"
+
+var isSuccess = (poNumberStatus == "ok") and (amountStatus == "ok") and (billingStatus == "ok") and (shippingStatus == "ok")
+---
+{
+    zip: vars.s3FileName default vars.archiveFileName default vars.originalFileName default "",
+    pdf: vars.pdfFileName default "",
+    status: if(sizeOf(vars.purchaseOrderData default []) == 0) "fail" else if(isSuccess) "ok" else "fail",
+    details: {
+        poNumber: { status: poNumberStatus, idp: idpPayload.poNumber, sfdc: sfdc.Purchase_Order_Reference__c },
+        totalAmount: { status: amountStatus, idp: cleanIdpAmount, sfdc: cleanSfdcAmount },
+        billingAddress: { status: billingStatus, idp: cleanIdpBilling, sfdc: cleanSfdcBilling },
+        shippingAddress: { status: shippingStatus, idp: cleanIdpShipping, sfdc: cleanSfdcShipping }
+    }
+}
+]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+
+                <choice doc:name="Check Overall Status">
+                    <when expression="#[payload.status == 'ok']">
+                        <logger level="INFO" doc:name="Log Validation Success" message="#[output application/json --- payload]"/>
+                        
+                        <set-variable variableName="soxEvent" value="Validation Successful" doc:name="Set soxEvent Success"/>
+                        <flow-ref doc:name="Call sox-audit-subflow" name="sox-audit-subflow"/>
+                    </when>
+                    <otherwise>
+                        <logger level="WARN" doc:name="Log Validation Fail" message="#[output application/json --- payload]"/>
+                        <flow-ref doc:name="Call exception-queue-subflow" name="exception-queue-subflow"/>
+                    </otherwise>
+                </choice>
+            </when>
+            <otherwise>
+                <logger level="WARN" doc:name="Log Missing PO" message="[#[vars.correlationId]] PO Number is missing or empty. Skipping SFDC Query and routing to exception."/>
+                <flow-ref doc:name="Call exception-queue-subflow" name="exception-queue-subflow"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <!-- 4. EXCEPTION QUEUE SUBFLOW -->
+    <sub-flow name="exception-queue-subflow" doc:name="Exception Queue Subflow">
+        <logger level="ERROR" doc:name="Log Exception Robustly" message="[EXCEPTION-ALERT] CorrelationID: #[vars.correlationId]. Failed to process file: #[vars.originalFileName]. Salesforce was NOT updated. A manual review is required for the data extracted by IDP."/>
+        
+        <set-variable variableName="soxEvent" value="Processing Failed" doc:name="Set soxEvent Failed"/>
+        <set-variable variableName="soxDetails" value="Manual review required" doc:name="Set soxDetails Failed"/>
+        <flow-ref doc:name="Call sox-audit-subflow" name="sox-audit-subflow"/>
+        <remove-variable variableName="soxDetails" doc:name="Clear soxDetails"/>
+    </sub-flow>
+
+    <!-- 5. SOX AUDIT SUBFLOW -->
+    <sub-flow name="sox-audit-subflow" doc:name="SOX Audit Subflow">
+        <logger level="INFO" doc:name="SOX Audit Logger" message="[SOX-AUDIT] Event: #[vars.soxEvent default 'Transaction Completed'] | PO Number: #[if(payload is Object) (payload.poNumber default 'N/A') else 'N/A'] | CorrelationID: #[vars.correlationId default ''] | File: #[vars.originalFileName default ''] | Details: #[vars.soxDetails default '']"/>
+    </sub-flow>
+
+</mule>

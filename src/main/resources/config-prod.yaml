@@ -1,0 +1,14 @@
+anypoint:
+  clientId: "PROD_CLIENT_ID"
+  clientSecret: "PROD_CLIENT_SECRET"
+
+idp:
+  baseUrl: "https://idp-rt.us-east-1.anypoint.mulesoft.com"
+
+organization:
+  id: "prod-org-id"
+
+action:
+  id: "prod-action-id"
+
+version: "1.1.0"
